@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>CG AV3 — Setup de Quarto</title>
+  <style>
+    body { margin: 0; font-family: system-ui, Arial; background: #111; color: #eee; }
+    .wrap { display: grid; grid-template-columns: 1fr 340px; gap: 12px; padding: 12px; }
+    canvas { width: 100%; height: calc(100vh - 24px); background: #000; border-radius: 10px; }
+    .panel { background: #1b1b1b; border-radius: 10px; padding: 12px; height: calc(100vh - 24px); overflow: auto; }
+    .row { display: grid; grid-template-columns: 120px 1fr; gap: 8px; align-items: center; margin: 8px 0; }
+    label { font-size: 12px; opacity: .9; }
+    input[type="range"] { width: 100%; }
+    select, input[type="number"] { width: 100%; padding: 6px; border-radius: 8px; border: 1px solid #333; background: #0f0f0f; color: #eee; }
+    .hint { font-size: 12px; opacity: .8; line-height: 1.35; margin-top: 8px; }
+    h3 { margin: 10px 0 6px; font-size: 14px; }
+    .small { font-size: 12px; opacity: .75; }
+    .hr { height: 1px; background: #2a2a2a; margin: 10px 0; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <canvas id="glcanvas"></canvas>
+
+    <div class="panel">
+      <h3>Controles</h3>
+      <div class="hint">
+        <b>Mouse:</b> arrastar (esq) orbita • scroll zoom • arrastar (dir) pan<br/>
+        <span class="small">Clique no abajur para ligar/desligar.</span>
+      </div>
+
+      <div class="hr"></div>
+
+      <h3>Projeção (perspectiva)</h3>
+      <div class="row">
+        <label>FOV (graus)</label>
+        <input id="fov" type="range" min="20" max="120" step="1" value="60" />
+      </div>
+      <div class="row">
+        <label>Near</label>
+        <input id="near" type="number" min="0.01" max="10" step="0.01" value="0.1" />
+      </div>
+      <div class="row">
+        <label>Far</label>
+        <input id="far" type="number" min="5" max="500" step="1" value="60" />
+      </div>
+      <div class="row">
+        <label>Aspect</label>
+        <input id="aspect" type="number" min="0.2" max="4" step="0.01" value="1.50" />
+      </div>
+
+      <div class="hr"></div>
+
+      <h3>Textura</h3>
+      <div class="row">
+        <label>Imagem</label>
+        <input id="textureFile" type="file" accept="image/*" />
+      </div>
+      <div class="hint small">
+        Textura ativa nos objetos marcados (modo Modulate fixo).<br/>
+        Modelo de sombreamento: Blinn-Phong.
+      </div>
+
+      <div class="hr"></div>
+
+      <h3>Status</h3>
+      <div id="status" class="small">Inicializando…</div>
+    </div>
+  </div>
+
+  <!-- Common -->
+  <script src="Common/webgl-utils.js"></script>
+  <script src="Common/initShaders.js"></script>
+  <script src="Common/MV.js"></script>
+
+  <!-- Shaders -->
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    precision mediump float;
+
+    attribute vec3 aPosition;
+    attribute vec3 aNormal;
+    attribute vec2 aTexCoord;
+
+    uniform mat4 uModelView;
+    uniform mat4 uProj;
+    uniform mat3 uNormalMatrix;
+
+    varying vec3 vPosEye;
+    varying vec3 vNormalEye;
+    varying vec2 vTexCoord;
+
+    void main() {
+      vec4 posEye4 = uModelView * vec4(aPosition, 1.0);
+      vPosEye = posEye4.xyz;
+      vNormalEye = normalize(uNormalMatrix * aNormal);
+      vTexCoord = aTexCoord;
+      gl_Position = uProj * posEye4;
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+
+    varying vec3 vPosEye;
+    varying vec3 vNormalEye;
+    varying vec2 vTexCoord;
+
+    uniform vec4  uLightPosEye0;
+    uniform vec4  uLightPosEye1;
+    uniform vec3  uLightColor0;
+    uniform vec3  uLightColor1;
+    uniform float uLightIntensity0;
+    uniform float uLightIntensity1;
+    uniform vec3  uLightAtten0;
+    uniform vec3  uLightAtten1;
+
+    uniform vec3 uGlobalAmbient;
+    uniform vec3 uKa;
+    uniform vec3 uKd;
+    uniform vec3 uKs;
+    uniform float uShininess;
+    uniform vec3 uKe;
+
+    uniform int uUseBlinn;
+    uniform sampler2D uTex0;
+    uniform int uUseTexture;
+
+    vec3 applyLight(vec4 lightPosEye, vec3 lightColor, float lightIntensity, vec3 lightAtten, vec3 N, vec3 V) {
+      vec3 L;
+      float att = 1.0;
+
+      if (lightPosEye.w == 0.0) {
+        L = normalize(lightPosEye.xyz);
+      } else {
+        vec3 lv = lightPosEye.xyz - vPosEye;
+        float dist = length(lv);
+        L = lv / max(dist, 0.0001);
+        vec3 a = lightAtten;
+        att = 1.0 / (a.x + a.y * dist + a.z * dist * dist);
+      }
+
+      float ndotl = max(dot(N, L), 0.0);
+      vec3 diffuse = uKd * ndotl;
+
+      float spec = 0.0;
+      if (ndotl > 0.0) {
+        // SEMPRE Blinn-Phong
+        vec3 H = normalize(L + V);
+        spec = pow(max(dot(N, H), 0.0), uShininess);
+      }
+      vec3 specular = uKs * spec;
+
+      return (diffuse + specular) * lightColor * lightIntensity * att;
+    }
+
+    void main() {
+      vec3 N = normalize(vNormalEye);
+      vec3 V = normalize(-vPosEye);
+
+      vec3 ambient = uGlobalAmbient * uKa;
+      vec3 lit = ambient 
+               + applyLight(uLightPosEye0, uLightColor0, uLightIntensity0, uLightAtten0, N, V)
+               + applyLight(uLightPosEye1, uLightColor1, uLightIntensity1, uLightAtten1, N, V)
+               + uKe;
+
+      vec4 base = vec4(lit, 1.0);
+
+      // SEMPRE Modulate quando textura ativa
+      if (uUseTexture == 1) {
+        vec4 tex = texture2D(uTex0, vTexCoord);
+        base.rgb *= tex.rgb;
+      }
+
+      gl_FragColor = base;
+    }
+  </script>
+
+  <!-- App -->
+  <script src="trabalho_cg.js"></script>
+</body>
+</html>

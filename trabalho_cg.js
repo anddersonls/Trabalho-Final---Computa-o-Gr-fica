@@ -1,5 +1,3 @@
-"use strict";
-
 let gl, canvas, program;
 
 const UI = {};
@@ -10,11 +8,11 @@ const state = {
   far: 60,
   aspect: 1.5,
 
-  // câmera (orbital)
+  // câmera
   target: vec3(0.0, 0.8, 0.0),
   radius: 4.0,
-  theta: 0.9,  // rad
-  phi: 1.1,    // rad
+  theta: 0.9,
+  phi: 1.1,
 
   // mouse
   mouse: {
@@ -26,6 +24,10 @@ const state = {
 
   // tempo
   t0: 0,
+
+  //animação
+  sceneRotation: 0,
+  rotationSpeed: 20,
 };
 
 const loc = {
@@ -66,15 +68,15 @@ let tex0 = null;
 const meshes = {};
 const sceneObjects = [];
 const lights = [
-  // Luz ambiente do quarto (direcional)
+  // Luz ambiente
   {
     type: "directional",
-    directionWorld: vec3(-1.4, 1.9, 1.0), // Vindo de cima
-    color: vec3(0.9, 0.9, 1.0),          // Azul bem clarinho (luz de dia)
-    intensity: 0.8,                      // Intensidade média
+    directionWorld: vec3(-1.4, 1.9, 1.0),
+    color: vec3(0.9, 0.9, 1.0),       
+    intensity: 0.8,                     
     atten: vec3(1.0, 0.0, 0.0),
   },
-  // Abajur (pontual) — posição vai bater no "bulbo"
+  // Abajur
   {
     type: "point",
     positionWorld: vec3(0.7, 1.1, -0.3),
@@ -84,9 +86,7 @@ const lights = [
   },
 ];
 
-// ---------------------------
-// Helpers
-// ---------------------------
+
 function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
 
 function mulMat4Vec4(m, v) {
@@ -123,18 +123,8 @@ function orbitEye() {
   return vec3(x, y, z);
 }
 
-function composeTRS(t, rDeg, s) {
-  const T = translate(t[0], t[1], t[2]);
-  const Rx = rotate(rDeg[0], [1,0,0]);
-  const Ry = rotate(rDeg[1], [0,1,0]);
-  const Rz = rotate(rDeg[2], [0,0,1]);
-  const S = scalem(s[0], s[1], s[2]);
-  return mult(T, mult(Rz, mult(Ry, mult(Rx, S))));
-}
 
-// ---------------------------
-// Geometria
-// ---------------------------
+// ======= Montagem geométrica =======
 function createCube() {
   const P = [];
   const N = [];
@@ -263,14 +253,11 @@ function drawMesh(mesh) {
   else gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
 }
 
-// ---------------------------
-// Textura
-// ---------------------------
+// ======= Textura =======
 function createDefaultTexture() {
   const t = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, t);
   
-  // Textura padrão de xadrez (para teste)
   const size = 64;
   const pixels = new Uint8Array(size * size * 4);
   
@@ -320,9 +307,7 @@ function uploadTextureFromImage(img) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 }
 
-// ---------------------------
-// Cena
-// ---------------------------
+// ======= construção da cena =======
 function addObject(params) {
   sceneObjects.push({
     name: params.name,
@@ -344,7 +329,6 @@ function buildScene() {
   const screen = { ka: vec3(0.05,0.05,0.05), kd: vec3(0.10,0.10,0.10), ks: vec3(0.10,0.10,0.10), shininess: 8,  ke: vec3(0.03,0.08,0.10) };
   const bulb = { ka: vec3(0.05,0.05,0.05), kd: vec3(0.10,0.10,0.10), ks: vec3(0.0,0.0,0.0),  shininess: 1,  ke: vec3(0.9,0.75,0.45) };
 
-  // chão
   addObject({
     name: "chao",
     mesh: meshes.cube,
@@ -353,15 +337,13 @@ function buildScene() {
     material: dark,
     anim: { type: "none" }
   });
-
-  // mesa (topo + 4 pernas)
   addObject({
     name: "mesa_topo",
     mesh: meshes.cube,
     baseT: vec3(0, 0.78, 0),
     baseS: vec3(1.6, 0.08, 0.9),
     material: wood,
-    textured: true,  // ESTE OBJETO TEM TEXTURA
+    textured: true,
     anim: { type: "none" }
   });
 
@@ -382,7 +364,6 @@ function buildScene() {
     anim: { type: "none" }
   }));
 
-  // gabinete (PC)
   addObject({
     name: "gabinete",
     mesh: meshes.cube,
@@ -391,8 +372,6 @@ function buildScene() {
     material: plastic,
     anim: { type: "none" }
   });
-
-  // monitor
   addObject({
     name: "monitor",
     mesh: meshes.cube,
@@ -409,7 +388,6 @@ function buildScene() {
     material: plastic,
     anim: { type: "none" }
   });
-  // teclado + mouse
   addObject({
     name: "teclado",
     mesh: meshes.cube,
@@ -422,8 +400,8 @@ function buildScene() {
   name: "mouse",
   mesh: meshes.sphere,
   baseT: vec3(0.60, 0.83, 0.12),
-  baseR: vec3(-15, 0, 0), // Inclinação para frente (-15 graus)
-  baseS: vec3(0.08, 0.05, 0.12), // Mais largo, menos alto
+  baseR: vec3(-15, 0, 0),
+  baseS: vec3(0.08, 0.05, 0.12),
   material: {
     ka: vec3(0.10, 0.10, 0.12),
     kd: vec3(0.4, 0.4, 0.45),    
@@ -432,9 +410,7 @@ function buildScene() {
     ke: vec3(0, 0, 0)
   },
   anim: { type: "none" }
-});
-
-  // cadeira
+  });
   addObject({
     name: "cadeira_assento",
     mesh: meshes.cube,
@@ -452,10 +428,10 @@ function buildScene() {
     anim: { type: "none" }
   });
  [
-    vec3(-0.22, 0.23, 0.725),  // traseiro esquerdo
-    vec3(0.22, 0.23, 0.725),   // traseiro direito
-    vec3(-0.22, 0.23, 1.175),  // dianteiro esquerdo
-    vec3(0.22, 0.23, 1.175),   // dianteiro direito
+    vec3(-0.22, 0.23, 0.725),
+    vec3(0.22, 0.23, 0.725),
+    vec3(-0.22, 0.23, 1.175),
+    vec3(0.22, 0.23, 1.175),
   ].forEach((pos, i) => {
     addObject({
       name: `cadeira_pe_${i}`,
@@ -466,7 +442,6 @@ function buildScene() {
       anim: { type: "none" }
     });
   });
-  // abajur
   addObject({
     name: "abajur_base",
     mesh: meshes.cube,
@@ -491,8 +466,6 @@ function buildScene() {
     material: wood,
     anim: { type: "none" }
   });
-
-  // bulbo
   addObject({
     name: "abajur_bulbo",
     mesh: meshes.sphere,
@@ -502,8 +475,6 @@ function buildScene() {
     anim: { type: "none" },
     isLightMarker: true
   });
-
-  // marcador da luz
   addObject({
     name: "luz_quarto_marker",
     mesh: meshes.sphere,
@@ -515,9 +486,7 @@ function buildScene() {
   });
 }
 
-// ---------------------------
-// WebGL init + uniforms
-// ---------------------------
+// ======= WEBGL Init =======
 function cacheLocations() {
   loc.aPosition = gl.getAttribLocation(program, "aPosition");
   loc.aNormal   = gl.getAttribLocation(program, "aNormal");
@@ -550,147 +519,41 @@ function cacheLocations() {
   loc.uUseTexture  = gl.getUniformLocation(program, "uUseTexture");
   loc.uTexMode     = gl.getUniformLocation(program, "uTexMode");
   loc.uBlendFactor = gl.getUniformLocation(program, "uBlendFactor");
-
-  console.log("Uniform uTexMode location:", loc.uTexMode);
-  console.log("Uniform uUseTexture location:", loc.uUseTexture);
-}
-
-function setMaterial(mat) {
-  gl.uniform3fv(loc.uKa, flatten(mat.ka));
-  gl.uniform3fv(loc.uKd, flatten(mat.kd));
-  gl.uniform3fv(loc.uKs, flatten(mat.ks));
-  gl.uniform1f(loc.uShininess, mat.shininess);
-  gl.uniform3fv(loc.uKe, flatten(mat.ke));
 }
 
 function setLights(view) {
-  // LUZ 0 - DIRECIONAL
   const L0 = lights[0];
-  const dirWorld = normalize(L0.directionWorld);
   
-  const dirEye = [
-    view[0][0]*dirWorld[0] + view[0][1]*dirWorld[1] + view[0][2]*dirWorld[2],
-    view[1][0]*dirWorld[0] + view[1][1]*dirWorld[1] + view[1][2]*dirWorld[2],
-    view[2][0]*dirWorld[0] + view[2][1]*dirWorld[1] + view[2][2]*dirWorld[2]
-  ];
+  const dirWorld4 = vec4(L0.directionWorld[0], L0.directionWorld[1], L0.directionWorld[2], 0.0);
+  const dirEye4 = mulMat4Vec4(view, dirWorld4);
+  const dirEye = vec4(dirEye4[0], dirEye4[1], dirEye4[2], 0.0);
   
-  const posEye0 = vec4(dirEye[0], dirEye[1], dirEye[2], 0.0);
-  
-  // LUZ 1 - PONTUAL
-  const L1 = lights[1];
-  const pWorld = L1.positionWorld;
-  const pWorld4 = vec4(pWorld[0], pWorld[1], pWorld[2], 1.0);
-  const pEye4 = mulMat4Vec4(view, pWorld4);
-  const posEye1 = vec4(pEye4[0], pEye4[1], pEye4[2], 1.0);
-  
-  gl.uniform4fv(loc.uLightPosEye0, flatten(posEye0));
+  gl.uniform4fv(loc.uLightPosEye0, flatten(dirEye));
   gl.uniform3fv(loc.uLightColor0, flatten(L0.color));
   gl.uniform1f(loc.uLightIntensity0, L0.intensity);
   gl.uniform3fv(loc.uLightAtten0, flatten(L0.atten));
+
+  const L1 = lights[1];
+  const originalPos = vec3(0.7, 1.1, -0.3);
+  const center = vec3(0, 0.8, 0);
+  const T_to_center = translate(-center[0], -center[1], -center[2]);
+  const R_rotation = rotate(state.sceneRotation, [0, 1, 0]);
+  const T_back = translate(center[0], center[1], center[2]);
+  const sceneRotationMatrix = mult(T_back, mult(R_rotation, T_to_center));
+  
+  const rotatedPos = mulMat4Vec4(sceneRotationMatrix, vec4(originalPos[0], originalPos[1], originalPos[2], 1.0));
+  
+  const pWorld4 = vec4(rotatedPos[0], rotatedPos[1], rotatedPos[2], 1.0);
+  const pEye4 = mulMat4Vec4(view, pWorld4);
+  const posEye1 = vec4(pEye4[0], pEye4[1], pEye4[2], 1.0);
   
   gl.uniform4fv(loc.uLightPosEye1, flatten(posEye1));
   gl.uniform3fv(loc.uLightColor1, flatten(L1.color));
-  gl.uniform1f(loc.uLightIntensity1, L1.intensity);
+  gl.uniform1f(loc.uLightIntensity1, L1.intensity); // SEMPRE 1.6
   gl.uniform3fv(loc.uLightAtten1, flatten(L1.atten));
 }
 
-function setGlobalParams() {
-  gl.uniform1i(loc.uUseBlinn, 1);
-  gl.uniform1i(loc.uTexMode, 0);
-  gl.uniform1f(loc.uBlendFactor, 0.0);
-
-  // Ambiente global
-  gl.uniform3fv(loc.uGlobalAmbient, flatten(vec3(0.18, 0.18, 0.20)));
-
-  // Textura sempre ativa no sampler 0
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, tex0);
-  gl.uniform1i(loc.uTex0, 0);
-}
-
-// ---------------------------
-// Interação com objetos (clique)
-// ---------------------------
-function setupObjectPicking() {
-  canvas.addEventListener('click', function(event) {
-    // Coordenadas do clique (normalizadas para -1 a 1)
-    const rect = canvas.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / canvas.width) * 2 - 1;
-    const y = -((event.clientY - rect.top) / canvas.height) * 2 + 1;
-    
-    // Ray picking simples (versão simplificada)
-    checkObjectClick(x, y);
-  });
-}
-
-function checkObjectClick(clickX, clickY) {
-  // Para cada objeto na cena
-  for (const obj of sceneObjects) {
-    // Verifica se é o abajur ou suas partes
-    if (obj.name.includes('abajur') || obj.name.includes('bulbo')) {
-      // Cálculo simplificado: verifica se o clique está perto do objeto
-      // Em um sistema real, você usaria ray casting
-      
-      // Posição do objeto no mundo
-      const objPos = obj.baseT;
-      
-      // Transforma para coordenadas da tela (aproximação)
-      const eye = orbitEye();
-      const view = lookAt(eye, state.target, vec3(0,1,0));
-      const proj = perspective(state.fov, getAspect(), state.near, state.far);
-      
-      // Matriz modelo-visão-projeção
-      const model = applyAnimation(obj, performance.now() * 0.001);
-      const modelView = mult(view, model);
-      const mvp = mult(proj, modelView);
-      
-      // Transforma posição do objeto para coordenadas de tela
-      const objPos4 = vec4(objPos[0], objPos[1], objPos[2], 1.0);
-      const screenPos4 = mulMat4Vec4(mvp, objPos4);
-      
-      // Normaliza coordenadas NDC para tela (-1 a 1)
-      if (screenPos4[3] !== 0) {
-        const ndcX = screenPos4[0] / screenPos4[3];
-        const ndcY = screenPos4[1] / screenPos4[3];
-        
-        // Verifica se o clique está próximo (raio de 0.1 em NDC)
-        const distance = Math.sqrt(
-          Math.pow(ndcX - clickX, 2) + 
-          Math.pow(ndcY - clickY, 2)
-        );
-        
-        if (distance < 0.1) {
-          toggleLamp();
-          return;
-        }
-      }
-    }
-  }
-}
-
-function toggleLamp() {
-  // Alterna a luz do abajur (luz 1)
-  if (lights[1].intensity > 0) {
-    // Desliga
-    lights[1].intensity = 0;
-    const bulb = sceneObjects.find(obj => obj.name === "abajur_bulbo");
-    if (bulb) {
-      bulb.material.ke = vec3(0, 0, 0);
-    }
-    UI.status.textContent = "Abajur DESLIGADO";
-  } else {
-    // Liga
-    lights[1].intensity = 1.6;
-    const bulb = sceneObjects.find(obj => obj.name === "abajur_bulbo");
-    if (bulb) {
-      bulb.material.ke = vec3(0.9, 0.75, 0.45);
-    }
-    UI.status.textContent = "Abajur LIGADO";
-  }
-}
-// ---------------------------
-// UI + eventos
-// ---------------------------
+// ======= Interface e eventos =======
 function hookUI() {
   UI.status = document.getElementById("status");
 
@@ -702,12 +565,10 @@ function hookUI() {
 
   UI.textureFile = document.getElementById("textureFile");
 
-  // Projeção
   UI.fov.addEventListener("input", () => state.fov = parseFloat(UI.fov.value));
   UI.near.addEventListener("change", () => state.near = parseFloat(UI.near.value));
   UI.far.addEventListener("change", () => state.far = parseFloat(UI.far.value));
 
-  // Carregar textura personalizada
   UI.textureFile.addEventListener("change", (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -723,7 +584,6 @@ function hookUI() {
     reader.readAsDataURL(file);
   });
 
-  // Câmera mouse
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
   canvas.addEventListener("mousedown", (e) => {
@@ -759,50 +619,56 @@ function hookUI() {
   }, { passive: true });
 }
 
-// ---------------------------
-// Render
-// ---------------------------
+// ====== Renderização ======
 function applyAnimation(obj, t) {
-  let T = vec3(obj.baseT[0], obj.baseT[1], obj.baseT[2]);
-  let R = vec3(obj.baseR[0], obj.baseR[1], obj.baseR[2]);
-  let S = vec3(obj.baseS[0], obj.baseS[1], obj.baseS[2]);
-
-  if (!obj.anim || obj.anim.type === "none") return composeTRS(T, R, S);
-
-  if (obj.anim.type === "rotateY") {
-    R[1] += obj.anim.speed * t;
-    
-  } else if (obj.anim.type === "bob") {
-    T[1] += Math.sin(t * obj.anim.speed) * obj.anim.amp;
-    
-  } else if (obj.anim.type === "bounce") {
-    // =========== ANIMAÇÃO DE QUIQUE ===========
-    // Move em padrão senoidal para simular quique
-    // Usamos seno e côsseno com fases diferentes para movimento diagonal
-    const offsetX = Math.sin(t * obj.anim.speedX) * obj.anim.ampX;
-    const offsetY = Math.cos(t * obj.anim.speedY) * obj.anim.ampY;
-    
-    // Mantém a posição base e adiciona o movimento
-    T[0] = obj.baseT[0] + offsetX;
-    T[1] = obj.baseT[1] + offsetY;
-    
-    // Rotação opcional (gira enquanto se move)
-    R[0] = Math.sin(t * 2) * 20;  // Inclina para frente/trás
-    R[1] = t * 50;                // Gira continuamente
-    // =========================================
-  }
+  state.sceneRotation = (t * state.rotationSpeed) % 360;
+  const center = vec3(0, 0.8, 0);
   
-  return composeTRS(T, R, S);
+  const T_to_center = translate(-center[0], -center[1], -center[2]);
+  const R_rotation = rotate(state.sceneRotation, [0, 1, 0]);
+  const T_back = translate(center[0], center[1], center[2]);
+  
+  const sceneRotationMatrix = mult(T_back, mult(R_rotation, T_to_center));
+  
+  const localT = translate(obj.baseT[0], obj.baseT[1], obj.baseT[2]);
+  const localR = rotate(obj.baseR[0], [1,0,0]);
+  const localRy = rotate(obj.baseR[1], [0,1,0]);
+  const localRz = rotate(obj.baseR[2], [0,0,1]);
+  const localS = scalem(obj.baseS[0], obj.baseS[1], obj.baseS[2]);
+  
+  const localTransform = mult(localT, mult(localRz, mult(localRy, mult(localR, localS))));
+
+  if (!obj.name.includes("luz_quarto") && obj.name !== "chao") {
+    return mult(sceneRotationMatrix, localTransform);
+  } else {
+    return localTransform;
+  }
+}
+
+function setMaterial(mat) {
+  gl.uniform3fv(loc.uKa, flatten(mat.ka));
+  gl.uniform3fv(loc.uKd, flatten(mat.kd));
+  gl.uniform3fv(loc.uKs, flatten(mat.ks));
+  gl.uniform1f(loc.uShininess, mat.shininess);
+  gl.uniform3fv(loc.uKe, flatten(mat.ke));
+}
+
+function setGlobalParams() {
+  gl.uniform1i(loc.uUseBlinn, 1);
+  gl.uniform1i(loc.uTexMode, 0);
+  gl.uniform1f(loc.uBlendFactor, 0.0);
+  gl.uniform3fv(loc.uGlobalAmbient, flatten(vec3(0.18, 0.18, 0.20)));
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, tex0);
+  gl.uniform1i(loc.uTex0, 0);
 }
 
 function render(nowMs) {
   resizeCanvasToDisplaySize();
   gl.viewport(0, 0, canvas.width, canvas.height);
-
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   const t = nowMs * 0.001;
-
   const eye = orbitEye();
   const view = lookAt(eye, state.target, vec3(0,1,0));
   const proj = perspective(state.fov, getAspect(), state.near, state.far);
@@ -810,7 +676,7 @@ function render(nowMs) {
   gl.uniformMatrix4fv(loc.uProj, false, flatten(proj));
 
   setLights(view);
-  setGlobalParams(); // Envia texMode, blendFactor, etc
+  setGlobalParams();
 
   for (const obj of sceneObjects) {
     const model = applyAnimation(obj, t);
@@ -822,8 +688,6 @@ function render(nowMs) {
 
     setMaterial(obj.material);
 
-    // TEXTURA: Ativa apenas para objetos marcados como textured
-    // Isso substitui o antigo "useTexture"
     const useTextureForObject = obj.textured ? 1 : 0;
     gl.uniform1i(loc.uUseTexture, useTextureForObject);
 
@@ -834,9 +698,6 @@ function render(nowMs) {
   requestAnimationFrame(render);
 }
 
-// ---------------------------
-// Main
-// ---------------------------
 window.onload = function main() {
   canvas = document.getElementById("glcanvas");
   gl = WebGLUtils.setupWebGL(canvas);
@@ -849,7 +710,6 @@ window.onload = function main() {
   gl.clearColor(0.04, 0.04, 0.06, 1.0);
 
   program = initShaders(gl, "vertex-shader", "fragment-shader");
-  console.log("Programa WebGL criado:", program);
   
   if (!program) {
     alert("Falha ao criar programa WebGL");
@@ -860,17 +720,13 @@ window.onload = function main() {
 
   cacheLocations();
   hookUI();
-  setupObjectPicking(); 
-
-  // Criar textura padrão
   tex0 = createDefaultTexture();
 
   meshes.cube = createMesh(createCube());
   meshes.sphere = createMesh(createSphere(16, 16));
-
   buildScene();
 
-  UI.status.textContent = "OK: esqueleto carregado (cena + câmera + luzes + shaders).";
+  UI.status.textContent = "OK";
 
   requestAnimationFrame(render);
 };

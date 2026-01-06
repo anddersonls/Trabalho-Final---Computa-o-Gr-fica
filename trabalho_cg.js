@@ -64,7 +64,6 @@ const loc = {
 };
 
 let tex0 = null;
-
 const meshes = {};
 const sceneObjects = [];
 const lights = [
@@ -73,7 +72,7 @@ const lights = [
     type: "directional",
     directionWorld: vec3(-1.4, 1.9, 1.0),
     color: vec3(0.9, 0.9, 1.0),       
-    intensity: 0.8,                     
+    intensity: 1.5,                     
     atten: vec3(1.0, 0.0, 0.0),
   },
   // Abajur
@@ -81,11 +80,10 @@ const lights = [
     type: "point",
     positionWorld: vec3(0.7, 1.1, -0.3),
     color: vec3(1.0, 0.85, 0.6),
-    intensity: 1.6,
+    intensity: 2.0,
     atten: vec3(1.0, 0.25, 0.08),
   },
 ];
-
 
 function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
 
@@ -109,7 +107,11 @@ function resizeCanvasToDisplaySize() {
 }
 
 function getAspect() {
-  return Math.max(0.01, canvas.width / canvas.height);
+  if (canvas.height === 0) {
+    return 1.5; 
+  }
+  const aspect = canvas.width / canvas.height;
+  return Math.max(0.5, Math.min(3.0, aspect));
 }
 
 function orbitEye() {
@@ -363,7 +365,6 @@ function buildScene() {
     material: wood,
     anim: { type: "none" }
   }));
-
   addObject({
     name: "gabinete",
     mesh: meshes.cube,
@@ -549,7 +550,7 @@ function setLights(view) {
   
   gl.uniform4fv(loc.uLightPosEye1, flatten(posEye1));
   gl.uniform3fv(loc.uLightColor1, flatten(L1.color));
-  gl.uniform1f(loc.uLightIntensity1, L1.intensity); // SEMPRE 1.6
+  gl.uniform1f(loc.uLightIntensity1, L1.intensity);
   gl.uniform3fv(loc.uLightAtten1, flatten(L1.atten));
 }
 
@@ -561,10 +562,7 @@ function hookUI() {
   UI.near = document.getElementById("near");
   UI.far = document.getElementById("far");
   UI.aspect = document.getElementById("aspect");
-  UI.aspectMode = document.getElementById("aspectMode");
-
   UI.textureFile = document.getElementById("textureFile");
-
   UI.fov.addEventListener("input", () => state.fov = parseFloat(UI.fov.value));
   UI.near.addEventListener("change", () => state.near = parseFloat(UI.near.value));
   UI.far.addEventListener("change", () => state.far = parseFloat(UI.far.value));
@@ -671,7 +669,11 @@ function render(nowMs) {
   const t = nowMs * 0.001;
   const eye = orbitEye();
   const view = lookAt(eye, state.target, vec3(0,1,0));
-  const proj = perspective(state.fov, getAspect(), state.near, state.far);
+  const currentAspect = getAspect();
+  if (UI.aspectValue) {
+    UI.aspectValue.textContent = currentAspect.toFixed(2);
+  }
+  const proj = perspective(state.fov, currentAspect, state.near, state.far);
 
   gl.uniformMatrix4fv(loc.uProj, false, flatten(proj));
 

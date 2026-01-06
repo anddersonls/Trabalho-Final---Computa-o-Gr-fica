@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <title>CG AV3 — Setup de Quarto</title>
+  <title>Setup de Quarto</title>
   <style>
     body { margin: 0; font-family: system-ui, Arial; background: #111; color: #eee; }
     .wrap { display: grid; grid-template-columns: 1fr 340px; gap: 12px; padding: 12px; }
@@ -27,12 +27,11 @@
       <h3>Controles</h3>
       <div class="hint">
         <b>Mouse:</b> arrastar (esq) orbita • scroll zoom • arrastar (dir) pan<br/>
-        <span class="small">Clique no abajur para ligar/desligar.</span>
       </div>
 
       <div class="hr"></div>
 
-      <h3>Projeção (perspectiva)</h3>
+      <h3>Projeção</h3>
       <div class="row">
         <label>FOV (graus)</label>
         <input id="fov" type="range" min="20" max="120" step="1" value="60" />
@@ -45,10 +44,6 @@
         <label>Far</label>
         <input id="far" type="number" min="5" max="500" step="1" value="60" />
       </div>
-      <div class="row">
-        <label>Aspect</label>
-        <input id="aspect" type="number" min="0.2" max="4" step="0.01" value="1.50" />
-      </div>
 
       <div class="hr"></div>
 
@@ -58,7 +53,7 @@
         <input id="textureFile" type="file" accept="image/*" />
       </div>
       <div class="hint small">
-        Textura ativa nos objetos marcados (modo Modulate fixo).<br/>
+        Textura: Modulate<br/>
         Modelo de sombreamento: Blinn-Phong.
       </div>
 
@@ -143,7 +138,6 @@
 
       float spec = 0.0;
       if (ndotl > 0.0) {
-        // SEMPRE Blinn-Phong
         vec3 H = normalize(L + V);
         spec = pow(max(dot(N, H), 0.0), uShininess);
       }
@@ -164,7 +158,6 @@
 
       vec4 base = vec4(lit, 1.0);
 
-      // SEMPRE Modulate quando textura ativa
       if (uUseTexture == 1) {
         vec4 tex = texture2D(uTex0, vTexCoord);
         base.rgb *= tex.rgb;
